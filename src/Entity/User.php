@@ -5,30 +5,53 @@ namespace App\Entity;
 use App\Repository\UserRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
+use Symfony\Component\Security\Core\User\UserInterface;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
-class User
+#[ORM\Table(name: '`user`')]
+class User implements UserInterface, PasswordAuthenticatedUserInterface
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
     private ?int $id = null;
 
-    #[ORM\Column(length: 255)]
+    #[ORM\Column(length: 255, nullable: true)]
     private ?string $nome = null;
 
-    #[ORM\Column(length: 255)]
+    #[ORM\Column(length: 255, nullable: true)]
     private ?string $telefone = null;
 
-    #[ORM\Column(length: 255)]
+    #[ORM\Column(length: 100, nullable: false, unique: true)]
+    private ?string $email = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
     private ?string $senha = null;
 
-    #[ORM\Column(length: 255)]
-    private ?string $rg = null;
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $cpf = null;
 
-    #[ORM\Column(type: Types::DATE_MUTABLE)]
+    #[ORM\Column(type: Types::DATE_MUTABLE, nullable: true)]
     private ?\DateTime $dataNascimento = null;
 
+    // Métodos da interface
+    public function getUserIdentifier(): string
+    {
+        return (string) $this->email;
+    }
+
+    public function getRoles(): array
+    {
+        return ['ROLE_USER'];
+    }
+
+    public function eraseCredentials(): void
+    {
+        // Limpa dados sensíveis se necessário
+    }
+
+    // Métodos padrão (já existentes)
     public function getId(): ?int
     {
         return $this->id;
@@ -39,10 +62,20 @@ class User
         return $this->nome;
     }
 
-    public function setNome(string $nome): static
+    public function setNome(?string $nome): static
     {
         $this->nome = $nome;
+        return $this;
+    }
 
+    public function getEmail(): ?string
+    {
+        return $this->email;
+    }
+
+    public function setEmail(?string $email): static
+    {
+        $this->email = $email;
         return $this;
     }
 
@@ -51,10 +84,9 @@ class User
         return $this->telefone;
     }
 
-    public function setTelefone(string $telefone): static
+    public function setTelefone(?string $telefone): static
     {
         $this->telefone = $telefone;
-
         return $this;
     }
 
@@ -63,22 +95,20 @@ class User
         return $this->senha;
     }
 
-    public function setSenha(string $senha): static
+    public function setSenha(?string $senha): static
     {
         $this->senha = $senha;
-
         return $this;
     }
 
-    public function getRg(): ?string
+    public function getCpf(): ?string
     {
-        return $this->rg;
+        return $this->cpf;
     }
 
-    public function setRg(string $rg): static
+    public function setCpf(?string $cpf): static
     {
-        $this->rg = $rg;
-
+        $this->cpf = $cpf;
         return $this;
     }
 
@@ -87,10 +117,14 @@ class User
         return $this->dataNascimento;
     }
 
-    public function setDataNascimento(\DateTime $dataNascimento): static
+    public function setDataNascimento(?\DateTime $dataNascimento): static
     {
         $this->dataNascimento = $dataNascimento;
-
         return $this;
+    }
+
+    public function getPassword(): ?string
+    {
+        return $this->getSenha();
     }
 }
