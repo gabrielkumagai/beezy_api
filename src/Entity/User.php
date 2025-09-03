@@ -35,6 +35,11 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(type: Types::DATE_MUTABLE, nullable: true)]
     private ?\DateTime $dataNascimento = null;
 
+    // Mapeie o campo para o tipo BLOB no banco de dados
+    #[ORM\Column(type: Types::BLOB, nullable: true)]
+    private $imagem = null;
+
+
     // Métodos da interface
     public function getUserIdentifier(): string
     {
@@ -127,4 +132,16 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     {
         return $this->getSenha();
     }
+
+    public function getImagem(): mixed
+    {
+        return $this->imagem;
+    }
+
+    public function setImagem(mixed $imagem): static
+    {
+        $this->imagem = $imagem;
+        return $this;
+    }
+
 }

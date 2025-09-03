@@ -7,10 +7,11 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Annotation\Route;
 use App\Entity\User;
-use Doctrine\ORM\EntityManagerInterface;
 use App\Dto\UserDto;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 
 class ApiUserController extends AbstractController
 {
@@ -41,7 +42,7 @@ class ApiUserController extends AbstractController
             $em->persist($user);
             $em->flush();
         } catch (UniqueConstraintViolationException $e) {
-            return new JsonResponse(['error' => 'Já existe um usuárioa com este e-mail.'], 409);
+            return new JsonResponse(['error' => 'Já existe um usuário com este e-mail.'], 409);
         } catch (\Exception $e) {
             return new JsonResponse(['error' => 'Ocorreu um erro inesperado: ' . $e->getMessage()], 500);
         }
@@ -65,25 +66,6 @@ class ApiUserController extends AbstractController
         $em->flush();
 
         return new JsonResponse(['message' => 'Usuário deletado com sucesso'], 200);
-    }
-
-    #[Route('/api/user/get/{id}', name: 'app_api_user_get', methods: ['GET'])]
-    public function findUser(int $id, EntityManagerInterface $em): JsonResponse
-    {
-        $user = $em->getRepository(User::class)->find($id);
-
-        if (!$user) {
-            return new JsonResponse(['error' => 'Usuário não encontrado'], 404);
-        }
-
-        return new JsonResponse([
-            'id' => $user->getId(),
-            'nome' => $user->getNome(),
-            'telefone' => $user->getTelefone(),
-            'email' => $user->getEmail(),
-            'cpf' => $user->getCpf(),
-            'dataNascimento' => $user->getDataNascimento()?->format('Y-m-d'),
-        ]);
     }
 
     #[Route('/api/user/update/{id}', name: 'app_api_user_update', methods: ['PUT'])]
@@ -125,5 +107,71 @@ class ApiUserController extends AbstractController
         }
 
         return new JsonResponse(['message' => 'Usuário atualizado com sucesso']);
+    }
+
+    #[Route('/api/user/{id}/upload-image', name: 'app_api_user_upload_image', methods: ['POST'])]
+    public function uploadImage(int $id, Request $request, EntityManagerInterface $em): JsonResponse
+    {
+        $user = $em->getRepository(User::class)->find($id);
+
+        if (!$user) {
+            return new JsonResponse(['error' => 'Usuário não encontrado'], 404);
+        }
+
+        /** @var UploadedFile $uploadedFile */
+        $uploadedFile = $request->files->get('image');
+
+        if ($uploadedFile) {
+            // Lê o conteúdo binário do arquivo
+            $imageData = file_get_contents($uploadedFile->getPathname());
+
+            if ($imageData === false) {
+                return new JsonResponse(['error' => 'Falha ao ler o arquivo.'], 500);
+            }
+
+            // Salva o conteúdo binário diretamente no campo da entidade
+            $user->setImagem($imageData);
+            $em->flush();
+
+            return new JsonResponse([
+                'message' => 'Imagem do usuário atualizada com sucesso',
+                'image_size' => strlen($imageData)
+            ], 200);
+        }
+
+        return new JsonResponse(['error' => 'Nenhuma imagem foi enviada.'], 400);
+    }
+
+    #[Route('/api/user/get/{id}', name: 'app_api_user_get', methods: ['GET'])]
+    public function findUser(int $id, EntityManagerInterface $em): JsonResponse
+    {
+        $user = $em->getRepository(User::class)->find($id);
+
+        if (!$user) {
+            return new JsonResponse(['error' => 'Usuário não encontrado'], 404);
+        }
+
+        // Converte o conteúdo binário da imagem para Base64 antes de retornar
+        $imagemBase64 = null;
+        if ($user->getImagem() !== null) {
+            // O Doctrine pode retornar o BLOB como um recurso de stream, precisamos ler o conteúdo
+            if (is_resource($user->getImagem())) {
+                $imagemData = stream_get_contents($user->getImagem());
+            } else {
+                $imagemData = $user->getImagem();
+            }
+
+            $imagemBase64 = base64_encode($imagemData);
+        }
+
+        return new JsonResponse([
+            'id' => $user->getId(),
+            'nome' => $user->getNome(),
+            'telefone' => $user->getTelefone(),
+            'email' => $user->getEmail(),
+            'cpf' => $user->getCpf(),
+            'dataNascimento' => $user->getDataNascimento()?->format('Y-m-d'),
+            'imagem' => $imagemBase64, // Adiciona a imagem em Base64 na resposta
+        ]);
     }
 }
