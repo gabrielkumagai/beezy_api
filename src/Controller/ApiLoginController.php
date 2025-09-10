@@ -14,3 +14,4 @@ class ApiLoginController extends AbstractController
         throw new \Exception('This should not be reached!');
     }
 }
+
