@@ -84,21 +84,25 @@ class ApiUserController extends AbstractController
         }
 
         try {
-            $dto = UserDto::fromArray($data);
-        } catch (\Exception $e) {
-            return new JsonResponse(['error' => 'Dados inválidos: ' . $e->getMessage()], 400);
-        }
+            if (isset($data['nome'])) {
+                $user->setNome($data['nome']);
+            }
+            if (isset($data['telefone'])) {
+                $user->setTelefone($data['telefone']);
+            }
+            if (isset($data['email'])) {
+                $user->setEmail($data['email']);
+            }
+            if (isset($data['senha'])) {
+                $user->setSenha($passwordHasher->hashPassword($user, $data['senha']));
+            }
+            if (isset($data['cpf'])) {
+                $user->setCpf($data['cpf']);
+            }
+            if (isset($data['dataNascimento'])) {
+                $user->setDataNascimento(new \DateTime($data['dataNascimento']));
+            }
 
-        $user->setNome($dto->nome);
-        $user->setTelefone($dto->telefone);
-        $user->setEmail($dto->email);
-        if ($dto->senha !== null) {
-            $user->setSenha($passwordHasher->hashPassword($user, $dto->senha));
-        }
-        $user->setCpf($dto->cpf);
-        $user->setDataNascimento($dto->dataNascimento);
-
-        try {
             $em->flush();
         } catch (UniqueConstraintViolationException $e) {
             return new JsonResponse(['error' => 'Já existe um usuário com este e-mail.'], 409);
@@ -122,14 +126,12 @@ class ApiUserController extends AbstractController
         $uploadedFile = $request->files->get('image');
 
         if ($uploadedFile) {
-            // Lê o conteúdo binário do arquivo
             $imageData = file_get_contents($uploadedFile->getPathname());
 
             if ($imageData === false) {
                 return new JsonResponse(['error' => 'Falha ao ler o arquivo.'], 500);
             }
 
-            // Salva o conteúdo binário diretamente no campo da entidade
             $user->setImagem($imageData);
             $em->flush();
 
@@ -151,10 +153,8 @@ class ApiUserController extends AbstractController
             return new JsonResponse(['error' => 'Usuário não encontrado'], 404);
         }
 
-        // Converte o conteúdo binário da imagem para Base64 antes de retornar
         $imagemBase64 = null;
         if ($user->getImagem() !== null) {
-            // O Doctrine pode retornar o BLOB como um recurso de stream, precisamos ler o conteúdo
             if (is_resource($user->getImagem())) {
                 $imagemData = stream_get_contents($user->getImagem());
             } else {
@@ -171,7 +171,7 @@ class ApiUserController extends AbstractController
             'email' => $user->getEmail(),
             'cpf' => $user->getCpf(),
             'dataNascimento' => $user->getDataNascimento()?->format('Y-m-d'),
-            'imagem' => $imagemBase64, // Adiciona a imagem em Base64 na resposta
+            'imagem' => $imagemBase64,
         ]);
     }
 }
