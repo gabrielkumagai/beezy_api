@@ -11,7 +11,6 @@ use App\Dto\UserDto;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
-use Symfony\Component\HttpFoundation\File\UploadedFile;
 
 class ApiUserController extends AbstractController
 {
@@ -37,6 +36,14 @@ class ApiUserController extends AbstractController
         $user->setSenha($passwordHasher->hashPassword($user, $dto->senha));
         $user->setCpf($dto->cpf);
         $user->setDataNascimento($dto->dataNascimento);
+
+        if ($dto->imagemBase64) {
+            $base64Data = preg_replace('/^data:image\/\w+;base64,/', '', $dto->imagemBase64);
+            $imageData = base64_decode($base64Data);
+            if ($imageData !== false) {
+                $user->setImagem($imageData);
+            }
+        }
 
         try {
             $em->persist($user);
@@ -84,23 +91,34 @@ class ApiUserController extends AbstractController
         }
 
         try {
-            if (isset($data['nome'])) {
+            if (array_key_exists('nome', $data)) {
                 $user->setNome($data['nome']);
             }
-            if (isset($data['telefone'])) {
+            if (array_key_exists('telefone', $data)) {
                 $user->setTelefone($data['telefone']);
             }
-            if (isset($data['email'])) {
+            if (array_key_exists('email', $data)) {
                 $user->setEmail($data['email']);
             }
-            if (isset($data['senha'])) {
+            if (array_key_exists('senha', $data)) {
                 $user->setSenha($passwordHasher->hashPassword($user, $data['senha']));
             }
-            if (isset($data['cpf'])) {
+            if (array_key_exists('cpf', $data)) {
                 $user->setCpf($data['cpf']);
             }
-            if (isset($data['dataNascimento'])) {
-                $user->setDataNascimento(new \DateTime($data['dataNascimento']));
+            if (array_key_exists('dataNascimento', $data)) {
+                $user->setDataNascimento($data['dataNascimento'] ? new \DateTime($data['dataNascimento']) : null);
+            }
+            if (array_key_exists('imagem', $data)) {
+                if ($data['imagem'] === null) {
+                    $user->setImagem(null);
+                } else {
+                    $base64Data = preg_replace('/^data:image\/\w+;base64,/', '', $data['imagem']);
+                    $imageData = base64_decode($base64Data);
+                    if ($imageData !== false) {
+                        $user->setImagem($imageData);
+                    }
+                }
             }
 
             $em->flush();
@@ -111,37 +129,6 @@ class ApiUserController extends AbstractController
         }
 
         return new JsonResponse(['message' => 'Usuário atualizado com sucesso']);
-    }
-
-    #[Route('/api/user/{id}/upload-image', name: 'app_api_user_upload_image', methods: ['POST'])]
-    public function uploadImage(int $id, Request $request, EntityManagerInterface $em): JsonResponse
-    {
-        $user = $em->getRepository(User::class)->find($id);
-
-        if (!$user) {
-            return new JsonResponse(['error' => 'Usuário não encontrado'], 404);
-        }
-
-        /** @var UploadedFile $uploadedFile */
-        $uploadedFile = $request->files->get('image');
-
-        if ($uploadedFile) {
-            $imageData = file_get_contents($uploadedFile->getPathname());
-
-            if ($imageData === false) {
-                return new JsonResponse(['error' => 'Falha ao ler o arquivo.'], 500);
-            }
-
-            $user->setImagem($imageData);
-            $em->flush();
-
-            return new JsonResponse([
-                'message' => 'Imagem do usuário atualizada com sucesso',
-                'image_size' => strlen($imageData)
-            ], 200);
-        }
-
-        return new JsonResponse(['error' => 'Nenhuma imagem foi enviada.'], 400);
     }
 
     #[Route('/api/user/get/{id}', name: 'app_api_user_get', methods: ['GET'])]
@@ -171,7 +158,7 @@ class ApiUserController extends AbstractController
             'email' => $user->getEmail(),
             'cpf' => $user->getCpf(),
             'dataNascimento' => $user->getDataNascimento()?->format('Y-m-d'),
-            'imagem' => $imagemBase64,
+            'imagem' => $imagemBase64, // Adiciona a imagem em Base64 na resposta
         ]);
     }
 }

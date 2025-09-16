@@ -9,6 +9,7 @@ class UserDto
     public ?string $senha = null;
     public ?string $cpf = null;
     public ?\DateTime $dataNascimento = null;
+    public ?string $imagemBase64 = null; // Adicionado para a imagem Base64
 
     public static function fromArray(array $data): self
     {
@@ -22,6 +23,7 @@ class UserDto
         $dto->dataNascimento = !empty($data['dataNascimento'])
             ? new \DateTime($data['dataNascimento'])
             : null;
+        $dto->imagemBase64 = !empty($data['imagem']) ? $data['imagem'] : null;
 
         return $dto;
     }
