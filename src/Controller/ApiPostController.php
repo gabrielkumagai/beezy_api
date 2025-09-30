@@ -40,6 +40,36 @@ class ApiPostController extends AbstractController
         return new JsonResponse($this->formatPostData($post));
     }
 
+    #[Route('/api/users/{userId}/posts', name: 'api_user_posts', methods: ['GET'])]
+    public function getPostsByUser(int $userId, PostRepository $postRepository, UserRepository $userRepository): JsonResponse
+    {
+        $user = $userRepository->find($userId);
+
+        if (!$user) {
+            return new JsonResponse(['error' => 'Usuário não encontrado'], 404);
+        }
+
+        $posts = $postRepository->findBy(['author' => $user]);
+        $data = array_map(fn(Post $post) => $this->formatPostData($post), $posts);
+
+        return new JsonResponse($data);
+    }
+
+    // Rota adicionada para contar posts por usuário
+    #[Route('/api/users/{userId}/posts/count', name: 'api_user_posts_count', methods: ['GET'])]
+    public function countPostsByUser(int $userId, PostRepository $postRepository, UserRepository $userRepository): JsonResponse
+    {
+        $user = $userRepository->find($userId);
+
+        if (!$user) {
+            return new JsonResponse(['error' => 'Usuário não encontrado'], 404);
+        }
+
+        $postCount = $postRepository->count(['author' => $user]);
+
+        return new JsonResponse(['count' => $postCount]);
+    }
+
     #[Route('/api/posts', name: 'api_post_create', methods: ['POST'])]
     public function createPost(Request $request, EntityManagerInterface $em, UserRepository $userRepository): JsonResponse
     {
