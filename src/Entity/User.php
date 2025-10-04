@@ -43,9 +43,13 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\OneToMany(targetEntity: PostLike::class, mappedBy: 'user', orphanRemoval: true)]
     private Collection $likedPosts;
 
+    #[ORM\OneToMany(targetEntity: CommentLike::class, mappedBy: 'user', orphanRemoval: true)]
+    private Collection $likedComments;
+
     public function __construct()
     {
         $this->likedPosts = new ArrayCollection();
+        $this->likedComments = new ArrayCollection();
     }
 
     public function getUserIdentifier(): string
@@ -156,5 +160,13 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function getLikedPosts(): Collection
     {
         return $this->likedPosts;
+    }
+
+    /**
+     * @return Collection<int, CommentLike>
+     */
+    public function getLikedComments(): Collection
+    {
+        return $this->likedComments;
     }
 }

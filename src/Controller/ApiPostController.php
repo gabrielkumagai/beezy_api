@@ -6,9 +6,12 @@ use App\Entity\Post;
 use App\Entity\PostLike;
 use App\Entity\PostPicture;
 use App\Entity\Comment;
+use App\Entity\CommentLike;
+use App\Repository\CommentRepository;
 use App\Repository\PostRepository;
 use App\Repository\UserRepository;
 use App\Repository\PostLikeRepository;
+use App\Repository\CommentLikeRepository;
 use App\Dto\PostDto;
 use App\Dto\CommentDto;
 use Doctrine\ORM\EntityManagerInterface;
@@ -146,6 +149,7 @@ class ApiPostController extends AbstractController
                 'content' => $comment->getContent(),
                 'author' => $comment->getAuthor()->getNome(),
                 'timestamp' => $comment->getTimestamp()->format('Y-m-d H:i:s'),
+                'likesCount' => $comment->getLikesCount()
             ],
             'commentsCount' => $post->getCommentsCount()
         ], 201);
@@ -166,7 +170,6 @@ class ApiPostController extends AbstractController
 
         return new JsonResponse($postsData);
     }
-
 
     #[Route('/api/posts/{id}/like', name: 'api_post_like', methods: ['POST'])]
     public function likePost(int $id, EntityManagerInterface $em, PostRepository $postRepository, UserRepository $userRepository, PostLikeRepository $postLikeRepository): JsonResponse
@@ -208,6 +211,50 @@ class ApiPostController extends AbstractController
         ]);
     }
 
+    #[Route('/api/comments/{id}/like', name: 'api_comment_like', methods: ['POST'])]
+    public function likeComment(
+        int $id,
+        EntityManagerInterface $em,
+        CommentRepository $commentRepository,
+        UserRepository $userRepository,
+        CommentLikeRepository $commentLikeRepository
+    ): JsonResponse {
+        $comment = $commentRepository->find($id);
+
+        if (!$comment) {
+            return new JsonResponse(['error' => 'Comentário não encontrado'], 404);
+        }
+
+        /** @var UserInterface $currentUser */
+        $currentUser = $this->getUser();
+        $user = $userRepository->findOneBy(['email' => $currentUser->getUserIdentifier()]);
+
+        if (!$user) {
+            return new JsonResponse(['error' => 'Usuário não encontrado.'], 404);
+        }
+
+        $existingLike = $commentLikeRepository->findOneBy(['user' => $user, 'comment' => $comment]);
+        $message = '';
+        if ($existingLike) {
+            $em->remove($existingLike);
+            $message = 'Curtida removida com sucesso';
+            $comment->setLikesCount($comment->getLikesCount() - 1);
+        } else {
+            $like = new CommentLike();
+            $like->setComment($comment);
+            $like->setUser($user);
+            $em->persist($like);
+            $message = 'Comentário curtido com sucesso';
+            $comment->setLikesCount($comment->getLikesCount() + 1);
+        }
+
+        $em->flush();
+
+        return new JsonResponse([
+            'message' => $message,
+            'likes' => $comment->getLikesCount(),
+        ]);
+    }
 
     #[Route('/api/posts/{id}', name: 'api_post_delete', methods: ['DELETE'])]
     public function deletePost(int $id, EntityManagerInterface $em, PostRepository $postRepository): JsonResponse
@@ -237,6 +284,7 @@ class ApiPostController extends AbstractController
             'content' => $comment->getContent(),
             'author' => $comment->getAuthor()->getNome(),
             'timestamp' => $comment->getTimestamp()->format('Y-m-d H:i:s'),
+            'likesCount' => $comment->getLikesCount()
         ], $post->getComments()->toArray());
 
         $pictures = array_map(fn(PostPicture $picture) => $picture->getBase64Data(), $post->getPictures()->toArray());

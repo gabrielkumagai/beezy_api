@@ -3,6 +3,8 @@
 namespace App\Entity;
 
 use App\Repository\CommentRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -29,9 +31,17 @@ class Comment
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     private ?\DateTimeImmutable $timestamp = null;
 
+    #[ORM\OneToMany(targetEntity: CommentLike::class, mappedBy: 'comment', orphanRemoval: true)]
+    private Collection $likesByUsers;
+
+    #[ORM\Column(type: 'integer', options: ['default' => 0])]
+    private ?int $likesCount = 0;
+
+
     public function __construct()
     {
         $this->timestamp = new \DateTimeImmutable();
+        $this->likesByUsers = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -84,6 +94,22 @@ class Comment
     {
         $this->timestamp = $timestamp;
 
+        return $this;
+    }
+
+    public function getLikesByUsers(): Collection
+    {
+        return $this->likesByUsers;
+    }
+
+    public function getLikesCount(): ?int
+    {
+        return $this->likesCount;
+    }
+
+    public function setLikesCount(int $likesCount): self
+    {
+        $this->likesCount = $likesCount;
         return $this;
     }
 }
