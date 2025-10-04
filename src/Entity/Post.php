@@ -40,6 +40,9 @@ class Post
     #[ORM\OneToMany(targetEntity: PostLike::class, mappedBy: 'post', orphanRemoval: true)]
     private Collection $likesByUsers;
 
+    #[ORM\Column(type: 'integer', options: ['default' => 0])]
+    private ?int $commentsCount = 0;
+
     public function __construct()
     {
         $this->pictures = new ArrayCollection();
@@ -160,5 +163,28 @@ class Post
     public function getLikesByUsers(): Collection
     {
         return $this->likesByUsers;
+    }
+
+    public function getCommentsCount(): ?int
+    {
+        return $this->commentsCount;
+    }
+
+    public function setCommentsCount(int $commentsCount): self
+    {
+        $this->commentsCount = $commentsCount;
+        return $this;
+    }
+
+    public function incrementCommentsCount(): self
+    {
+        $this->commentsCount++;
+        return $this;
+    }
+
+    public function decrementCommentsCount(): self
+    {
+        $this->commentsCount--;
+        return $this;
     }
 }

@@ -134,6 +134,9 @@ class ApiPostController extends AbstractController
         $comment->setAuthor($user);
         $comment->setContent($commentDto->content);
         $em->persist($comment);
+
+        $post->incrementCommentsCount();
+
         $em->flush();
 
         return new JsonResponse([
@@ -143,7 +146,8 @@ class ApiPostController extends AbstractController
                 'content' => $comment->getContent(),
                 'author' => $comment->getAuthor()->getNome(),
                 'timestamp' => $comment->getTimestamp()->format('Y-m-d H:i:s'),
-            ]
+            ],
+            'commentsCount' => $post->getCommentsCount()
         ], 201);
     }
 
@@ -254,6 +258,7 @@ class ApiPostController extends AbstractController
             'pictures' => $pictures,
             'description' => $post->getDescription(),
             'likes' => count($post->getLikesByUsers()),
+            'commentsCount' => $post->getCommentsCount(),
             'comments' => $comments,
             'tag' => $post->getTag(),
         ];
