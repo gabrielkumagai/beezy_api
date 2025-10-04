@@ -3,6 +3,8 @@
 namespace App\Entity;
 
 use App\Repository\UserRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
@@ -35,12 +37,17 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(type: Types::DATE_MUTABLE, nullable: true)]
     private ?\DateTime $dataNascimento = null;
 
-    // Mapeie o campo para o tipo BLOB no banco de dados
     #[ORM\Column(type: Types::BLOB, nullable: true)]
     private $imagem = null;
 
+    #[ORM\OneToMany(targetEntity: PostLike::class, mappedBy: 'user', orphanRemoval: true)]
+    private Collection $likedPosts;
 
-    // Métodos da interface
+    public function __construct()
+    {
+        $this->likedPosts = new ArrayCollection();
+    }
+
     public function getUserIdentifier(): string
     {
         return (string) $this->email;
@@ -53,10 +60,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     public function eraseCredentials(): void
     {
-        // Limpa dados sensíveis se necessário
+
     }
 
-    // Métodos padrão (já existentes)
     public function getId(): ?int
     {
         return $this->id;
@@ -144,4 +150,11 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
+    /**
+     * @return Collection<int, PostLike>
+     */
+    public function getLikedPosts(): Collection
+    {
+        return $this->likedPosts;
+    }
 }

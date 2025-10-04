@@ -54,8 +54,6 @@ class ApiUserController extends AbstractController
             $user->setImagem(base64_decode($userDto->imagemBase64));
         }
 
-        // A entidade User já inicializa o timestamp no construtor
-        // $user->setTimestamp(new DateTimeImmutable());
 
         try {
             $em->persist($user);

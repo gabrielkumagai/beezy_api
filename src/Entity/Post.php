@@ -27,8 +27,6 @@ class Post
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     private ?\DateTimeImmutable $timestamp = null;
 
-    #[ORM\Column]
-    private ?int $likes = 0;
 
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $tag = null;
@@ -39,10 +37,14 @@ class Post
     #[ORM\OneToMany(targetEntity: Comment::class, mappedBy: 'post', orphanRemoval: true)]
     private Collection $comments;
 
+    #[ORM\OneToMany(targetEntity: PostLike::class, mappedBy: 'post', orphanRemoval: true)]
+    private Collection $likesByUsers;
+
     public function __construct()
     {
         $this->pictures = new ArrayCollection();
         $this->comments = new ArrayCollection();
+        $this->likesByUsers = new ArrayCollection(); // Inicializa a nova coleção
         $this->timestamp = new \DateTimeImmutable();
     }
 
@@ -80,17 +82,7 @@ class Post
         return $this->timestamp;
     }
 
-    public function getLikes(): ?int
-    {
-        return $this->likes;
-    }
 
-    public function setLikes(int $likes): static
-    {
-        $this->likes = $likes;
-
-        return $this;
-    }
 
     public function getTag(): ?string
     {
@@ -125,7 +117,6 @@ class Post
     public function removePicture(PostPicture $picture): static
     {
         if ($this->pictures->removeElement($picture)) {
-            // set the owning side to null (unless already changed)
             if ($picture->getPost() === $this) {
                 $picture->setPost(null);
             }
@@ -155,12 +146,19 @@ class Post
     public function removeComment(Comment $comment): static
     {
         if ($this->comments->removeElement($comment)) {
-            // set the owning side to null (unless already changed)
             if ($comment->getPost() === $this) {
                 $comment->setPost(null);
             }
         }
 
         return $this;
+    }
+
+    /**
+     * @return Collection<int, PostLike>
+     */
+    public function getLikesByUsers(): Collection
+    {
+        return $this->likesByUsers;
     }
 }

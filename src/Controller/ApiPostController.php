@@ -3,10 +3,12 @@
 namespace App\Controller;
 
 use App\Entity\Post;
+use App\Entity\PostLike;
 use App\Entity\PostPicture;
 use App\Entity\Comment;
 use App\Repository\PostRepository;
 use App\Repository\UserRepository;
+use App\Repository\PostLikeRepository;
 use App\Dto\PostDto;
 use App\Dto\CommentDto;
 use Doctrine\ORM\EntityManagerInterface;
@@ -16,6 +18,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Core\User\UserInterface;
 use DateTimeImmutable;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 
 class ApiPostController extends AbstractController
 {
@@ -53,21 +56,6 @@ class ApiPostController extends AbstractController
         $data = array_map(fn(Post $post) => $this->formatPostData($post), $posts);
 
         return new JsonResponse($data);
-    }
-
-    // Rota adicionada para contar posts por usuário
-    #[Route('/api/users/{userId}/posts/count', name: 'api_user_posts_count', methods: ['GET'])]
-    public function countPostsByUser(int $userId, PostRepository $postRepository, UserRepository $userRepository): JsonResponse
-    {
-        $user = $userRepository->find($userId);
-
-        if (!$user) {
-            return new JsonResponse(['error' => 'Usuário não encontrado'], 404);
-        }
-
-        $postCount = $postRepository->count(['author' => $user]);
-
-        return new JsonResponse(['count' => $postCount]);
     }
 
     #[Route('/api/posts', name: 'api_post_create', methods: ['POST'])]
@@ -159,8 +147,25 @@ class ApiPostController extends AbstractController
         ], 201);
     }
 
+    #[Route('/api/users/{userId}/liked-posts', name: 'api_user_liked_posts', methods: ['GET'])]
+    public function getLikedPostsByUser(int $userId, PostLikeRepository $postLikeRepository, UserRepository $userRepository): JsonResponse
+    {
+        $user = $userRepository->find($userId);
+
+        if (!$user) {
+            return new JsonResponse(['error' => 'Usuário não encontrado'], 404);
+        }
+
+        $likedPosts = $postLikeRepository->findBy(['user' => $user]);
+
+        $postsData = array_map(fn(PostLike $like) => $this->formatPostData($like->getPost()), $likedPosts);
+
+        return new JsonResponse($postsData);
+    }
+
+
     #[Route('/api/posts/{id}/like', name: 'api_post_like', methods: ['POST'])]
-    public function likePost(int $id, EntityManagerInterface $em, PostRepository $postRepository): JsonResponse
+    public function likePost(int $id, EntityManagerInterface $em, PostRepository $postRepository, UserRepository $userRepository, PostLikeRepository $postLikeRepository): JsonResponse
     {
         $post = $postRepository->find($id);
 
@@ -168,14 +173,37 @@ class ApiPostController extends AbstractController
             return new JsonResponse(['error' => 'Postagem não encontrada'], 404);
         }
 
-        $post->setLikes($post->getLikes() + 1);
+        /** @var UserInterface $currentUser */
+        $currentUser = $this->getUser();
+        $user = $userRepository->findOneBy(['email' => $currentUser->getUserIdentifier()]);
+
+        if (!$user) {
+            return new JsonResponse(['error' => 'Usuário não encontrado.'], 404);
+        }
+
+        $existingLike = $postLikeRepository->findOneBy(['user' => $user, 'post' => $post]);
+
+        if ($existingLike) {
+            $em->remove($existingLike);
+            $message = 'Curtida removida com sucesso';
+        } else {
+            $like = new PostLike();
+            $like->setPost($post);
+            $like->setUser($user);
+            $em->persist($like);
+            $message = 'Postagem curtida com sucesso';
+        }
+
         $em->flush();
 
+        $newLikesCount = $postLikeRepository->count(['post' => $post]);
+
         return new JsonResponse([
-            'message' => 'Postagem curtida com sucesso',
-            'likes' => $post->getLikes()
+            'message' => $message,
+            'likes' => $newLikesCount
         ]);
     }
+
 
     #[Route('/api/posts/{id}', name: 'api_post_delete', methods: ['DELETE'])]
     public function deletePost(int $id, EntityManagerInterface $em, PostRepository $postRepository): JsonResponse
@@ -186,7 +214,6 @@ class ApiPostController extends AbstractController
             return new JsonResponse(['error' => 'Postagem não encontrada'], 404);
         }
 
-        // Check if the current user is the author of the post before deleting
         /** @var UserInterface $currentUser */
         $currentUser = $this->getUser();
         if ($post->getAuthor()->getEmail() !== $currentUser->getUserIdentifier()) {
@@ -226,7 +253,7 @@ class ApiPostController extends AbstractController
             'timestamp' => $post->getTimestamp()->format('Y-m-d H:i:s'),
             'pictures' => $pictures,
             'description' => $post->getDescription(),
-            'likes' => $post->getLikes(),
+            'likes' => count($post->getLikesByUsers()),
             'comments' => $comments,
             'tag' => $post->getTag(),
         ];
