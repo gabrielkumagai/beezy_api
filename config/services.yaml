@@ -15,6 +15,16 @@ services:
             - '../src/Entity/'
             - '../src/Kernel.php'
 
-
     lexik_jwt_authentication.handler.authentication_success:
         class: App\Security\Authentication\AuthenticationSuccessHandler
+
+    App\Repository\FriendshipRepository:
+        class: App\Repository\FriendshipRepository
+    App\Repository\ChatRepository:
+        class: App\Repository\ChatRepository
+    App\Repository\MessageRepository:
+        class: App\Repository\MessageRepository
+
+    # Adicione o novo serviço de repositório de avaliações
+    App\Repository\RatingRepository:
+        class: App\Repository\RatingRepository

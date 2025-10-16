@@ -46,10 +46,31 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\OneToMany(targetEntity: CommentLike::class, mappedBy: 'user', orphanRemoval: true)]
     private Collection $likedComments;
 
+    #[ORM\OneToMany(targetEntity: Friendship::class, mappedBy: 'sender', orphanRemoval: true)]
+    private Collection $sentFriendships;
+
+    #[ORM\OneToMany(targetEntity: Friendship::class, mappedBy: 'receiver', orphanRemoval: true)]
+    private Collection $receivedFriendships;
+
+    #[ORM\ManyToMany(targetEntity: Chat::class, mappedBy: 'users')]
+    private Collection $chats;
+
+    // Novas propriedades para o sistema de avaliação
+    #[ORM\OneToMany(targetEntity: Rating::class, mappedBy: 'rater', orphanRemoval: true)]
+    private Collection $givenRatings;
+
+    #[ORM\OneToMany(targetEntity: Rating::class, mappedBy: 'ratedUser', orphanRemoval: true)]
+    private Collection $receivedRatings;
+
     public function __construct()
     {
         $this->likedPosts = new ArrayCollection();
         $this->likedComments = new ArrayCollection();
+        $this->sentFriendships = new ArrayCollection();
+        $this->receivedFriendships = new ArrayCollection();
+        $this->chats = new ArrayCollection();
+        $this->givenRatings = new ArrayCollection();
+        $this->receivedRatings = new ArrayCollection();
     }
 
     public function getUserIdentifier(): string
@@ -168,5 +189,45 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function getLikedComments(): Collection
     {
         return $this->likedComments;
+    }
+
+    /**
+     * @return Collection<int, Friendship>
+     */
+    public function getSentFriendships(): Collection
+    {
+        return $this->sentFriendships;
+    }
+
+    /**
+     * @return Collection<int, Friendship>
+     */
+    public function getReceivedFriendships(): Collection
+    {
+        return $this->receivedFriendships;
+    }
+
+    /**
+     * @return Collection<int, Chat>
+     */
+    public function getChats(): Collection
+    {
+        return $this->chats;
+    }
+
+    /**
+     * @return Collection<int, Rating>
+     */
+    public function getGivenRatings(): Collection
+    {
+        return $this->givenRatings;
+    }
+
+    /**
+     * @return Collection<int, Rating>
+     */
+    public function getReceivedRatings(): Collection
+    {
+        return $this->receivedRatings;
     }
 }
