@@ -13,7 +13,7 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Annotation\Route;
 use DateTimeImmutable;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
-
+// vou testar isso aq dps
 class ApiUserController extends AbstractController
 {
     #[Route('/api/user/create', name: 'api_user_create', methods: ['POST'])]
