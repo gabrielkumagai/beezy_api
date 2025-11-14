@@ -139,7 +139,7 @@ class ApiFriendshipController extends AbstractController
     }
 
     #[Route('/api/user/friends/{userId}', name: 'api_user_friends', methods: ['GET'])]
-    public function getUserFriends(int $userId, UserRepository $userRepository): JsonResponse
+    public function getUserFriends(int $userId, FriendshipRepository $friendshipRepository, UserRepository $userRepository): JsonResponse
     {
         $user = $userRepository->find($userId);
 
@@ -147,40 +147,58 @@ class ApiFriendshipController extends AbstractController
             return new JsonResponse(['error' => 'Usuário não encontrado'], 404);
         }
 
-        $friends = [];
-        $friendships = $userRepository->createQueryBuilder('u')
-            ->select('u')
-            ->innerJoin('u.sentFriendships', 'sf', 'WITH', 'sf.status = :status')
-            ->where('sf.sender = :userId')
-            ->orWhere('sf.receiver = :userId')
+        $friendships = $friendshipRepository->createQueryBuilder('f')
+            ->where('f.status = :status')
+            ->andWhere('f.sender = :user OR f.receiver = :user')
             ->setParameter('status', 'accepted')
-            ->setParameter('userId', $userId)
+            ->setParameter('user', $user)
             ->getQuery()
             ->getResult();
+
+        $friends = [];
 
         foreach ($friendships as $friendship) {
-            if ($friendship->getId() !== $userId) {
-                $friends[] = $this->formatUserData($friendship);
-            }
-        }
-
-        $friendshipsAsReceiver = $userRepository->createQueryBuilder('u')
-            ->select('u')
-            ->innerJoin('u.receivedFriendships', 'rf', 'WITH', 'rf.status = :status')
-            ->where('rf.receiver = :userId')
-            ->setParameter('status', 'accepted')
-            ->setParameter('userId', $userId)
-            ->getQuery()
-            ->getResult();
-
-        foreach ($friendshipsAsReceiver as $friend) {
-            if ($friend->getId() !== $userId) {
-                $friends[] = $this->formatUserData($friend);
+            // Se o usuário for o sender, o amigo é o receiver
+            if ($friendship->getSender()->getId() === $user->getId()) {
+                $friends[] = $this->formatUserData($friendship->getReceiver());
+            } else {
+                // Se o usuário for o receiver, o amigo é o sender
+                $friends[] = $this->formatUserData($friendship->getSender());
             }
         }
 
         return new JsonResponse($friends);
     }
+
+
+    #[Route('/api/friendship/received', name: 'api_friendship_received', methods: ['GET'])]
+    public function getReceivedFriendRequests(FriendshipRepository $friendshipRepository, UserRepository $userRepository): JsonResponse
+    {
+        /** @var UserInterface $currentUser */
+        $currentUser = $this->getUser();
+        $user = $userRepository->findOneBy(['email' => $currentUser->getUserIdentifier()]);
+
+        $requests = $friendshipRepository->findBy([
+            'receiver' => $user,
+            'status' => 'pending'
+        ]);
+
+        $result = [];
+        foreach ($requests as $req) {
+            $result[] = [
+                'id' => $req->getId(),
+                'sender' => [
+                    'id' => $req->getSender()->getId(),
+                    'nome' => $req->getSender()->getNome(),
+                    'email' => $req->getSender()->getEmail()
+                ],
+                'status' => $req->getStatus()
+            ];
+        }
+
+        return new JsonResponse($result);
+    }
+
 
     private function formatUserData(User $user): array
     {

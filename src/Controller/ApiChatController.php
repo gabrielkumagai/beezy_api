@@ -2,7 +2,7 @@
 
 namespace App\Controller;
 
-use App\Entity\Chat;
+use WebSocket\Client;
 use App\Entity\Message;
 use App\Entity\User;
 use App\Repository\ChatRepository;
@@ -36,7 +36,6 @@ class ApiChatController extends AbstractController
             return new JsonResponse(['error' => 'Não é possível iniciar um chat consigo mesmo.'], 400);
         }
 
-        // Verifica se já existe um chat entre os dois usuários
         $existingChat = $chatRepository->createQueryBuilder('c')
             ->join('c.users', 'u1')
             ->join('c.users', 'u2')
@@ -47,12 +46,28 @@ class ApiChatController extends AbstractController
             ->getQuery()
             ->getOneOrNullResult();
 
-        if ($existingChat) {
-            return new JsonResponse([
-                'message' => 'Chat já existe',
-                'chatId' => $existingChat->getId()
-            ]);
-        }
+            if ($existingChat) {
+                $otherUser = null;
+                foreach ($existingChat->getUsers() as $user) {
+                    if ($user->getId() !== $user1->getId()) {
+                        $otherUser = $user;
+                        break;
+                    }
+                }
+
+                return new JsonResponse([
+                    'message' => 'Chat já existe',
+                    'chatId' => $existingChat->getId(),
+                    'otherUser' => $otherUser ? [
+                        'id' => $otherUser->getId(),
+                        'nome' => $otherUser->getNome(),
+                        'imagem' => $otherUser->getImagem()
+                            ? base64_encode(stream_get_contents($otherUser->getImagem()))
+                            : null
+                    ] : null
+                ]);
+            }
+
 
         $chat = new Chat();
         $chat->addUser($user1);
@@ -63,7 +78,12 @@ class ApiChatController extends AbstractController
 
         return new JsonResponse([
             'message' => 'Chat iniciado com sucesso',
-            'chatId' => $chat->getId()
+            'chatId' => $chat->getId(),
+            'otherUser' => [
+                'id' => $user2->getId(),
+                'nome' => $user2->getNome(),
+                'imagem' => $user2->getImagem() ? base64_encode(stream_get_contents($user2->getImagem())) : null
+            ]
         ], 201);
     }
 
@@ -90,21 +110,30 @@ class ApiChatController extends AbstractController
             return new JsonResponse(['error' => 'Você não tem acesso a este chat.'], 403);
         }
 
-        $messages = $chat->getMessages()->map(function(Message $message) {
-            return [
-                'id' => $message->getId(),
-                'sender' => $message->getSender()->getNome(),
-                'content' => $message->getContent(),
-                'timestamp' => $message->getTimestamp()->format('Y-m-d H:i:s')
-            ];
-        })->toArray();
+        $messages = $chat->getMessages()
+            ->matching(\Doctrine\Common\Collections\Criteria::create()->orderBy(['timestamp' => 'ASC']))
+            ->map(function(Message $message) {
+                return [
+                    'id' => $message->getId(),
+                    'sender' => $message->getSender()->getNome(),
+                    'senderId' => $message->getSender()->getId(),
+                    'content' => $message->getContent(),
+                    'timestamp' => $message->getTimestamp()->format('Y-m-d H:i:s')
+                ];
+            })->toArray();
+
 
         return new JsonResponse($messages);
     }
 
     #[Route('/api/chat/{chatId}/send', name: 'api_chat_send_message', methods: ['POST'])]
-    public function sendMessage(int $chatId, Request $request, EntityManagerInterface $em, ChatRepository $chatRepository, UserRepository $userRepository): JsonResponse
-    {
+    public function sendMessage(
+        int $chatId,
+        Request $request,
+        EntityManagerInterface $em,
+        ChatRepository $chatRepository,
+        UserRepository $userRepository
+    ): JsonResponse {
         /** @var UserInterface $currentUser */
         $currentUser = $this->getUser();
         $sender = $userRepository->findOneBy(['email' => $currentUser->getUserIdentifier()]);
@@ -144,6 +173,23 @@ class ApiChatController extends AbstractController
 
         $em->persist($message);
         $em->flush();
+
+        try {
+            $payload = json_encode([
+                'chatId' => $chat->getId(),
+                'messageId' => $message->getId(),
+                'sender' => $sender->getNome(),
+                'senderId' => $sender->getId(),
+                'content' => $content,
+                'timestamp' => $message->getTimestamp()->format('Y-m-d H:i:s')
+            ]);
+
+            $client = new Client("ws://127.0.0.1:8080");
+            $client->send($payload);
+            $client->close();
+        } catch (\Exception $e) {
+            error_log("Erro ao enviar mensagem WS: " . $e->getMessage());
+        }
 
         return new JsonResponse([
             'message' => 'Mensagem enviada com sucesso',

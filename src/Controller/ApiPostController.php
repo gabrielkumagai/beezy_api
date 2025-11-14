@@ -290,16 +290,21 @@ class ApiPostController extends AbstractController
         $pictures = array_map(fn(PostPicture $picture) => $picture->getBase64Data(), $post->getPictures()->toArray());
 
         $userPhotoBase64 = null;
-        if ($post->getAuthor()->getImagem() !== null) {
-            $userPhoto = $post->getAuthor()->getImagem();
-            if (is_resource($userPhoto)) {
-                $userPhoto = stream_get_contents($userPhoto);
+        $authorImage = $post->getAuthor()->getImagem();
+
+        if ($authorImage !== null) {
+            if (is_resource($authorImage)) {
+                rewind($authorImage);
+                $authorImage = stream_get_contents($authorImage);
             }
-            $userPhotoBase64 = base64_encode($userPhoto);
+            if ($authorImage !== false) {
+                $userPhotoBase64 = base64_encode($authorImage);
+            }
         }
 
         return [
             'id' => $post->getId(),
+            'userId' => $post->getAuthor()->getId(),
             'username' => $post->getAuthor()->getNome(),
             'userphoto' => $userPhotoBase64,
             'timestamp' => $post->getTimestamp()->format('Y-m-d H:i:s'),
