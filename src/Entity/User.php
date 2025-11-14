@@ -62,6 +62,14 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\OneToMany(targetEntity: Rating::class, mappedBy: 'ratedUser', orphanRemoval: true)]
     private Collection $receivedRatings;
 
+    // --- INÍCIO DAS NOVAS PROPRIEDADES (FOLLOW) ---
+    #[ORM\OneToMany(mappedBy: 'follower', targetEntity: Follow::class, orphanRemoval: true)]
+    private Collection $following; // Quem este usuário segue
+
+    #[ORM\OneToMany(mappedBy: 'following', targetEntity: Follow::class, orphanRemoval: true)]
+    private Collection $followers; // Quem segue este usuário
+    // --- FIM DAS NOVAS PROPRIEDADES (FOLLOW) ---
+
     public function __construct()
     {
         $this->likedPosts = new ArrayCollection();
@@ -71,6 +79,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->chats = new ArrayCollection();
         $this->givenRatings = new ArrayCollection();
         $this->receivedRatings = new ArrayCollection();
+
+        // --- ADICIONAR AO CONSTRUTOR (FOLLOW) ---
+        $this->following = new ArrayCollection();
+        $this->followers = new ArrayCollection();
     }
 
     public function getUserIdentifier(): string
@@ -136,6 +148,8 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->senha = $senha;
         return $this;
     }
+
+
 
     public function getCpf(): ?string
     {
@@ -230,4 +244,67 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     {
         return $this->receivedRatings;
     }
+
+    // --- INÍCIO DOS NOVOS MÉTODOS (FOLLOW) ---
+
+    /**
+     * @return Collection<int, Follow>
+     */
+    public function getFollowing(): Collection
+    {
+        return $this->following;
+    }
+
+    public function addFollowing(Follow $follow): static
+    {
+        if (!$this->following->contains($follow)) {
+            $this->following->add($follow);
+            $follow->setFollower($this);
+        }
+
+        return $this;
+    }
+
+    public function removeFollowing(Follow $follow): static
+    {
+        if ($this->following->removeElement($follow)) {
+            // set the owning side to null (unless already changed)
+            if ($follow->getFollower() === $this) {
+                $follow->setFollower(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, Follow>
+     */
+    public function getFollowers(): Collection
+    {
+        return $this->followers;
+    }
+
+    public function addFollower(Follow $follow): static
+    {
+        if (!$this->followers->contains($follow)) {
+            $this->followers->add($follow);
+            $follow->setFollowing($this);
+        }
+
+        return $this;
+    }
+
+    public function removeFollower(Follow $follow): static
+    {
+        if ($this->followers->removeElement($follow)) {
+            // set the owning side to null (unless already changed)
+            if ($follow->getFollowing() === $this) {
+                $follow->setFollowing(null);
+            }
+        }
+
+        return $this;
+    }
+    // --- FIM DOS NOVOS MÉTODOS (FOLLOW) ---
 }

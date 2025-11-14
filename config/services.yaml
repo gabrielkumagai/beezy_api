@@ -1,4 +1,9 @@
-# config/services.yaml
+# This file is the entry point to configure your own services.
+# Files in the packages/ subdirectory configure your dependencies.
+
+# Put parameters here that don't need to change on each machine where the app is deployed
+# https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
+parameters:
 
 services:
     # default configuration for services in *this* file
@@ -15,16 +20,35 @@ services:
             - '../src/Entity/'
             - '../src/Kernel.php'
 
-    lexik_jwt_authentication.handler.authentication_success:
-        class: App\Security\Authentication\AuthenticationSuccessHandler
-
+    # add more service definitions when explicit configuration is needed
+    # please note that definitions somehow override complete default configuration
+    App\Repository\UserRepository:
+        class: App\Repository\UserRepository
+    App\Repository\PostRepository:
+        class: App\Repository\PostRepository
+    App\Repository\PostLikeRepository:
+        class: App\Repository\PostLikeRepository
+    App\Repository\CommentRepository:
+        class: App\Repository\CommentRepository
+    App\Repository\CommentLikeRepository:
+        class: App\Repository\CommentLikeRepository
     App\Repository\FriendshipRepository:
         class: App\Repository\FriendshipRepository
     App\Repository\ChatRepository:
         class: App\Repository\ChatRepository
     App\Repository\MessageRepository:
         class: App\Repository\MessageRepository
-
-    # Adicione o novo serviço de repositório de avaliações
+    App\Repository\PostPictureRepository:
+        class: App\Repository\PostPictureRepository
     App\Repository\RatingRepository:
         class: App\Repository\RatingRepository
+
+    # Adicionámos este repositório (está correto)
+    App\Repository\FollowRepository:
+        class: App\Repository\FollowRepository
+
+    App\Security\Authentication\AuthenticationSuccessHandler:
+        arguments:
+            # Esta linha está correta
+            $jwtManager: '@lexik_jwt_authentication.jwt_manager'
+            # A linha extra do $userRepository foi REMOVIDA daqui.
